@@ -1,123 +1,85 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import {
-  Activity, AlertTriangle, Building2, CheckCircle2, ChevronRight,
-  ClipboardCheck, HeartPulse, LayoutDashboard, Mail, ShieldCheck,
-  UserPlus, Users, UserRound, XCircle
-} from 'lucide-react';
+import { Activity, Building2, CheckCircle2, ClipboardCheck, LayoutDashboard, LogOut, Mail, ShieldCheck, Users } from 'lucide-react';
+import { authStore, teamReadyApi } from './api';
 import './styles.css';
+import './integration.css';
 
-const navItems = [
-  ['organisation', Building2, 'Organisation signup'],
-  ['staff', UserPlus, 'Staff & coaches'],
+const today = new Date().toISOString().slice(0, 10);
+const nav = [
+  ['dashboard', LayoutDashboard, 'Dashboard'],
+  ['organisation', Building2, 'Organisation'],
   ['team', Users, 'Create team'],
-  ['invite', Mail, 'Invite players'],
-  ['accept', ShieldCheck, 'Player onboarding'],
+  ['invite', Mail, 'Invite player'],
   ['checkin', ClipboardCheck, 'Daily check-in'],
-  ['dashboard', LayoutDashboard, 'Coach dashboard'],
-  ['player', UserRound, 'Individual player']
 ];
 
-const players = [
-  { name: 'Arvind J.', position: 'Midfielder', readiness: 88, status: 'ready' },
-  { name: 'James R.', position: 'Goalkeeper', readiness: 91, status: 'ready' },
-  { name: 'Noah K.', position: 'Defender', readiness: 71, status: 'monitor' },
-  { name: 'Liam P.', position: 'Forward', readiness: 48, status: 'review' },
-  { name: 'Ethan M.', position: 'Defender', readiness: 85, status: 'ready' },
-  { name: 'Oliver T.', position: 'Midfielder', readiness: 87, status: 'ready' },
-  { name: 'Lucas B.', position: 'Forward', readiness: 68, status: 'monitor' },
-  { name: 'Henry S.', position: 'Defender', readiness: null, status: 'missing' },
-  { name: 'Leo W.', position: 'Defender', readiness: 90, status: 'ready' },
-  { name: 'Jack D.', position: 'Midfielder', readiness: 84, status: 'ready' }
-];
+function Field({ label, children }) { return <label className="field"><span>{label}</span>{children}</label>; }
+function Notice({ type = 'info', children }) { return <div className={`integration-notice ${type}`}>{children}</div>; }
+function PageHeader({ title, subtitle, tag }) { return <header className="page-header"><div><h1>{title}</h1><p>{subtitle}</p></div>{tag && <span className="tag">{tag}</span>}</header>; }
 
-const questions = [
-  { id: 'sleepHours', title: 'How many hours did you sleep?', type: 'number', help: 'Enter total sleep, including naps if relevant.' },
-  { id: 'sleepQuality', title: 'How would you rate your sleep quality?', low: 'Very poor', high: 'Excellent' },
-  { id: 'energy', title: 'How energetic do you feel today?', low: 'No energy', high: 'Fully energised' },
-  { id: 'fatigue', title: 'How fatigued do you feel?', low: 'Not fatigued', high: 'Extremely fatigued', inverse: true },
-  { id: 'soreness', title: 'How sore are your muscles?', low: 'No soreness', high: 'Extreme soreness', inverse: true },
-  { id: 'stress', title: 'How stressed do you feel?', low: 'Calm', high: 'Extremely stressed', inverse: true },
-  { id: 'motivation', title: 'How motivated are you to train or play?', low: 'Not motivated', high: 'Fully motivated' },
-  { id: 'pain', title: 'Do you have pain or discomfort?', type: 'select', options: ['No', 'Mild', 'Moderate', 'Severe'] },
-  { id: 'painArea', title: 'Where is the pain?', type: 'select', options: ['No pain', 'Head or neck', 'Shoulder', 'Back', 'Hip', 'Hamstring', 'Knee', 'Ankle or foot', 'Other'] },
-  { id: 'illness', title: 'Do you have illness symptoms?', type: 'select', options: ['No', 'Cold or cough', 'Fever', 'Stomach issue', 'Headache', 'Other'] },
-  { id: 'readiness', title: 'How ready do you feel to train or play today?', low: 'Not ready', high: 'Fully ready' },
-  { id: 'note', title: 'Is there anything the coach should know?', type: 'textarea', help: 'Optional private note to authorised staff.' }
-];
-
-function Field({ label, children }) {
-  return <label className="field"><span>{label}</span>{children}</label>;
+function AuthScreen({ onAuthenticated }) {
+  const [mode, setMode] = useState('login');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ fullName: 'Daniel Smith', email: 'daniel@example.com', password: 'password123', organisationName: 'Western Sydney Football Academy', organisationType: 'Sports academy', primarySport: 'Football', country: 'Australia' });
+  const change = (key) => (event) => setForm((value) => ({ ...value, [key]: event.target.value }));
+  async function submit(event) {
+    event.preventDefault(); setBusy(true); setError('');
+    try {
+      const result = mode === 'login' ? await teamReadyApi.login({ email: form.email, password: form.password }) : await teamReadyApi.registerOrganisation(form);
+      authStore.set(result.token); onAuthenticated(result);
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+  return <div className="auth-shell"><div className="auth-brand"><ShieldCheck size={30}/><div><strong>TeamReady</strong><small>Player wellness operations</small></div></div><form className="card auth-card" onSubmit={submit}><div className="auth-tabs"><button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Sign in</button><button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Create organisation</button></div><h1>{mode === 'login' ? 'Welcome back' : 'Launch your organisation'}</h1><p className="muted">Connect to the TeamReady API and continue with real data.</p>{error && <Notice type="error">{error}</Notice>}{mode === 'register' && <><div className="form-grid"><Field label="Owner name"><input value={form.fullName} onChange={change('fullName')}/></Field><Field label="Organisation"><input value={form.organisationName} onChange={change('organisationName')}/></Field><Field label="Organisation type"><input value={form.organisationType} onChange={change('organisationType')}/></Field><Field label="Primary sport"><input value={form.primarySport} onChange={change('primarySport')}/></Field></div><Field label="Country"><input value={form.country} onChange={change('country')}/></Field></>}<Field label="Email"><input type="email" value={form.email} onChange={change('email')} required/></Field><Field label="Password"><input type="password" value={form.password} onChange={change('password')} minLength={8} required/></Field><button className="primary full" disabled={busy}>{busy ? 'Connecting…' : mode === 'login' ? 'Sign in' : 'Create organisation'}</button></form></div>;
 }
 
-function PageHeader({ title, subtitle, tag }) {
-  return <header className="page-header"><div><h1>{title}</h1><p>{subtitle}</p></div>{tag && <span className="tag">{tag}</span>}</header>;
+function TeamForm({ organisationId, onCreated }) {
+  const [form, setForm] = useState({ name: 'Under 18 Boys', sport: 'Football', ageGroup: 'Under 18', season: '2026', competition: 'NSW Youth League', timezone: 'Australia/Sydney', trainingDays: 'Tuesday, Thursday', matchDay: 'Saturday' });
+  const [state, setState] = useState({ busy: false, error: '', success: '' });
+  const change = (key) => (e) => setForm((v) => ({ ...v, [key]: e.target.value }));
+  async function submit(e) { e.preventDefault(); setState({ busy: true, error: '', success: '' }); try { const team = await teamReadyApi.createTeam(organisationId, form); setState({ busy: false, error: '', success: `${team.name} created.` }); onCreated(team); } catch (err) { setState({ busy: false, error: err.message, success: '' }); } }
+  return <><PageHeader title="Create a team" subtitle="Create a live team record and assign the organisation owner as head coach." tag="Connected"/><form className="card" onSubmit={submit}>{state.error && <Notice type="error">{state.error}</Notice>}{state.success && <Notice type="success">{state.success}</Notice>}<div className="form-grid three">{Object.entries(form).map(([key, value]) => <Field key={key} label={key.replace(/([A-Z])/g, ' $1')}><input value={value} onChange={change(key)} required={['name','sport'].includes(key)}/></Field>)}</div><button className="primary" disabled={!organisationId || state.busy}>{state.busy ? 'Creating…' : 'Create team'}</button></form></>;
 }
 
-function Organisation({ next }) {
-  return <><PageHeader title="Organisation signup" subtitle="The first verified user becomes the organisation owner." tag="Setup 1 of 4" />
-    <div className="two-col"><section className="card"><h2>Create your organisation</h2><div className="form-grid">
-      <Field label="Organisation name"><input defaultValue="Western Sydney Football Academy" /></Field>
-      <Field label="Organisation type"><select defaultValue="academy"><option value="academy">Sports academy</option><option>Club</option><option>School</option></select></Field>
-      <Field label="Primary sport"><select><option>Football</option><option>Cricket</option><option>Rugby</option></select></Field>
-      <Field label="Country"><select><option>Australia</option></select></Field>
-      <Field label="Owner full name"><input defaultValue="Daniel Smith" /></Field>
-      <Field label="Work email"><input type="email" defaultValue="daniel@example.com" /></Field>
-    </div><Field label="Password"><input type="password" defaultValue="password123" /></Field>
-    <button className="primary" onClick={next}>Create organisation <ChevronRight size={17} /></button></section>
-    <aside className="card summary"><h2>Foundation</h2><p>Players belong to teams, while coaches receive permission to manage assigned teams. This prevents one coach from permanently owning player records.</p><ul><li>Email verification</li><li>Role-based permissions</li><li>Multiple teams and coaches</li><li>Audit history</li></ul></aside></div></>;
+function InvitationForm({ teamId }) {
+  const [form, setForm] = useState({ email: 'arvind@example.com', fullName: 'Arvind Jonnalagadda', type: 'PLAYER', role: 'PLAYER', position: 'Midfielder', jerseyNumber: '8', guardianEmail: '' });
+  const [result, setResult] = useState(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const change = (key) => (e) => setForm((v) => ({ ...v, [key]: e.target.value }));
+  async function submit(e) { e.preventDefault(); setBusy(true); setError(''); try { const body = { ...form, permissions: [], guardianEmail: form.guardianEmail || undefined }; setResult(await teamReadyApi.createInvitation(teamId, body)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  return <><PageHeader title="Invite a player" subtitle="Generate a secure, expiring player invitation from the backend." tag="Connected"/><form className="card" onSubmit={submit}>{error && <Notice type="error">{error}</Notice>}{result && <Notice type="success"><strong>Invitation created.</strong><br/><a href={result.acceptUrl}>{result.acceptUrl}</a></Notice>}<div className="form-grid"><Field label="Player name"><input value={form.fullName} onChange={change('fullName')}/></Field><Field label="Email"><input type="email" value={form.email} onChange={change('email')}/></Field><Field label="Position"><input value={form.position} onChange={change('position')}/></Field><Field label="Jersey number"><input value={form.jerseyNumber} onChange={change('jerseyNumber')}/></Field></div><Field label="Guardian email (optional)"><input type="email" value={form.guardianEmail} onChange={change('guardianEmail')}/></Field><button className="primary" disabled={!teamId || busy}>{busy ? 'Sending…' : 'Create invitation'}</button></form></>;
 }
 
-function Staff() {
-  return <><PageHeader title="Staff and coaches" subtitle="Invite staff and control access separately from their job title." tag="Setup 2 of 4" /><div className="two-col">
-    <section className="card"><h2>Invite staff member</h2><Field label="Full name"><input defaultValue="Sarah Lee" /></Field><Field label="Email"><input defaultValue="sarah@example.com" /></Field><Field label="Designation"><select><option>Head coach</option><option>Assistant coach</option><option>Fitness coach</option><option>Physiotherapist</option><option>Analyst</option></select></Field><Field label="Assigned team"><select><option>Under 18 Boys</option><option>Senior Team</option></select></Field><div className="checks"><label><input type="checkbox" defaultChecked /> View wellness data</label><label><input type="checkbox" defaultChecked /> Add coach notes</label><label><input type="checkbox" /> Invite or remove players</label><label><input type="checkbox" /> View injury details</label></div><button className="primary">Send staff invitation</button></section>
-    <section className="card"><h2>Current staff</h2><DataTable rows={[['Daniel Smith','Organisation owner','All teams','Active'],['Sarah Lee','Head coach','U18 Boys','Pending'],['Michael Tan','Physiotherapist','Senior Team','Active']]} /></section></div></>;
+function Scale({ value, onChange }) { return <div className="scale">{Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <button type="button" key={n} className={value === n ? 'selected' : ''} onClick={() => onChange(n)}>{n}</button>)}</div>; }
+function CheckIn({ teamId }) {
+  const [answers, setAnswers] = useState({ checkInDate: today, sleepHours: 7.5, sleepQuality: 8, energy: 8, fatigue: 3, soreness: 2, stress: 3, motivation: 9, hasPain: false, painLocation: '', painSeverity: 1, illnessSymptoms: '', selfReadiness: 9, playerNote: '' });
+  const [status, setStatus] = useState({ busy: false, error: '', result: null });
+  const set = (key, value) => setAnswers((v) => ({ ...v, [key]: value }));
+  async function submit(e) { e.preventDefault(); setStatus({ busy: true, error: '', result: null }); try { const body = { ...answers, sleepHours: Number(answers.sleepHours), painLocation: answers.hasPain ? answers.painLocation : undefined, painSeverity: answers.hasPain ? Number(answers.painSeverity) : undefined, illnessSymptoms: answers.illnessSymptoms || undefined, playerNote: answers.playerNote || undefined }; setStatus({ busy: false, error: '', result: await teamReadyApi.submitCheckIn(teamId, body) }); } catch (err) { setStatus({ busy: false, error: err.message, result: null }); } }
+  const scales = [['sleepQuality','Sleep quality'],['energy','Energy'],['fatigue','Fatigue'],['soreness','Soreness'],['stress','Stress'],['motivation','Motivation'],['selfReadiness','Readiness']];
+  return <><PageHeader title="Daily check-in" subtitle="Submit the twelve-question wellness response to the selected team." tag="Connected"/><form className="card checkin-card" onSubmit={submit}>{status.error && <Notice type="error">{status.error}</Notice>}{status.result && <Notice type="success">Saved. Calculated readiness: <strong>{status.result.calculatedReadiness}</strong> · {status.result.availability}</Notice>}<div className="form-grid"><Field label="Check-in date"><input type="date" value={answers.checkInDate} onChange={(e) => set('checkInDate', e.target.value)}/></Field><Field label="Sleep hours"><input type="number" step="0.5" min="0" max="16" value={answers.sleepHours} onChange={(e) => set('sleepHours', e.target.value)}/></Field></div><div className="question-grid">{scales.map(([key,label]) => <div className="question" key={key}><h3>{label}</h3><Scale value={answers[key]} onChange={(value) => set(key, value)}/></div>)}</div><div className="form-grid"><Field label="Pain"><select value={answers.hasPain ? 'yes' : 'no'} onChange={(e) => set('hasPain', e.target.value === 'yes')}><option value="no">No</option><option value="yes">Yes</option></select></Field><Field label="Pain location"><input disabled={!answers.hasPain} value={answers.painLocation} onChange={(e) => set('painLocation', e.target.value)}/></Field><Field label="Pain severity"><input disabled={!answers.hasPain} type="number" min="1" max="10" value={answers.painSeverity} onChange={(e) => set('painSeverity', e.target.value)}/></Field><Field label="Illness symptoms"><input value={answers.illnessSymptoms} onChange={(e) => set('illnessSymptoms', e.target.value)}/></Field></div><Field label="Private note"><textarea value={answers.playerNote} onChange={(e) => set('playerNote', e.target.value)}/></Field><button className="primary" disabled={!teamId || status.busy}><CheckCircle2 size={18}/>{status.busy ? 'Submitting…' : 'Submit check-in'}</button></form></>;
 }
 
-function Team() {
-  return <><PageHeader title="Create a team" subtitle="Team membership connects players and authorised staff." tag="Setup 3 of 4" /><section className="card"><div className="form-grid three">
-    <Field label="Team name"><input defaultValue="Under 18 Boys" /></Field><Field label="Sport"><select><option>Football</option></select></Field><Field label="Age group"><select><option>Under 18</option></select></Field><Field label="Season"><input defaultValue="2026" /></Field><Field label="Competition"><input defaultValue="NSW Youth League" /></Field><Field label="Timezone"><select><option>Australia/Sydney</option></select></Field><Field label="Training days"><input defaultValue="Tuesday, Thursday" /></Field><Field label="Match day"><select><option>Saturday</option></select></Field><Field label="Head coach"><select><option>Sarah Lee</option></select></Field>
-  </div><button className="primary">Create team</button></section></>;
+function Dashboard({ teamId }) {
+  const [data, setData] = useState(null); const [error, setError] = useState(''); const [loading, setLoading] = useState(false);
+  async function load() { if (!teamId) return; setLoading(true); setError(''); try { setData(await teamReadyApi.dashboard(teamId, today)); } catch (err) { setError(err.message); } finally { setLoading(false); } }
+  useEffect(() => { load(); }, [teamId]);
+  const checkIns = data?.checkIns || data?.players || [];
+  return <><PageHeader title="Coach dashboard" subtitle="Live team data returned by the backend API." tag={loading ? 'Loading' : 'Live'}/>{error && <Notice type="error">{error}</Notice>}{!teamId && <Notice>Select or create a team first.</Notice>}{data && <><div className="metrics"><div className="card metric"><Activity/><strong>{data.averageReadiness ?? data.teamReadiness ?? '—'}</strong><span>Team readiness</span></div><div className="card metric"><ClipboardCheck/><strong>{data.completedCount ?? checkIns.length}</strong><span>Completed check-ins</span></div><div className="card metric"><Users/><strong>{data.monitorCount ?? checkIns.filter((p) => ['MONITOR','MODIFIED'].includes(p.availability)).length}</strong><span>Monitor</span></div><div className="card metric"><ShieldCheck/><strong>{data.highRiskCount ?? checkIns.filter((p) => p.availability === 'UNAVAILABLE').length}</strong><span>High risk</span></div></div><section className="card dashboard-grid"><div className="section-title"><h2>Player readiness</h2><button className="secondary" onClick={load}>Refresh</button></div><div className="heatmap">{checkIns.length ? checkIns.map((item) => { const score = item.calculatedReadiness ?? item.readiness; const status = score == null ? 'missing' : score >= 80 ? 'ready' : score >= 65 ? 'monitor' : 'review'; return <div className={`player-tile ${status}`} key={item.id || item.playerId || item.email}><strong>{item.player?.fullName || item.fullName || 'Player'}</strong><span>{score ?? 'No check-in'}</span></div>; }) : <p className="muted">No check-ins for {today}.</p>}</div></section></>}</>;
 }
-
-function Invite() {
-  return <><PageHeader title="Invite players" subtitle="Send secure invitations individually or import the squad by CSV." tag="Setup 4 of 4" /><div className="two-col"><section className="card"><h2>Invite one player</h2><Field label="Player full name"><input defaultValue="Arvind Jonnalagadda" /></Field><Field label="Email"><input defaultValue="arvind@example.com" /></Field><div className="form-grid"><Field label="Position"><select><option>Midfielder</option></select></Field><Field label="Jersey number"><input defaultValue="8" /></Field></div><Field label="Parent or guardian email"><input placeholder="Required where applicable" /></Field><div className="button-row"><button className="primary">Send invitation</button><button className="secondary">Upload CSV</button></div></section><section className="card"><h2>Invitation status</h2><DataTable rows={[['Arvind J.','Midfielder','Pending'],['James R.','Goalkeeper','Accepted'],['Noah K.','Defender','Expired']]} /></section></div></>;
-}
-
-function Accept() {
-  return <><PageHeader title="Player onboarding" subtitle="Preview of the secure invitation link opened by a player." tag="Mobile flow" /><div className="phone"><div className="phone-head"><strong>Join Under 18 Boys</strong><small>Western Sydney Football Academy</small></div><div className="phone-body"><div className="notice">Coach Sarah Lee invited you to join this team.</div><h2>Create your account</h2><Field label="Email"><input value="arvind@example.com" readOnly /></Field><Field label="Create password"><input type="password" defaultValue="password123" /></Field><Field label="Date of birth"><input type="date" /></Field><Field label="Playing position"><select><option>Midfielder</option></select></Field><Field label="Emergency contact"><input placeholder="Name and phone number" /></Field><label className="consent"><input type="checkbox" defaultChecked /> I understand which authorised staff can view my wellness information.</label><button className="primary full">Accept and join team</button></div></div></>;
-}
-
-function Scale({ value, onChange }) {
-  return <div className="scale">{Array.from({length:10},(_,i)=>i+1).map(n=><button key={n} className={value===n?'selected':''} onClick={()=>onChange(n)}>{n}</button>)}</div>;
-}
-
-function Checkin() {
-  const [answers,setAnswers]=useState({sleepHours:7.5,sleepQuality:8,energy:8,fatigue:3,soreness:2,stress:3,motivation:9,pain:'No',painArea:'No pain',illness:'No',readiness:9,note:''});
-  const update=(id,value)=>setAnswers(v=>({...v,[id]:value}));
-  return <><PageHeader title="Daily player check-in" subtitle="Twelve focused questions designed to take roughly 90 seconds." tag="Player flow" /><section className="card checkin-card"><div className="progress"><span style={{width:'58%'}} /></div><p className="muted small">7 of 12 questions previewed</p><div className="question-grid">{questions.map((q,index)=><div className="question" key={q.id}><div className="question-title"><b>{index+1}</b><h3>{q.title}</h3></div>{q.help&&<p className="small muted">{q.help}</p>}{q.type==='number'?<input type="number" step="0.5" value={answers[q.id]} onChange={e=>update(q.id,e.target.value)} />:q.type==='select'?<select value={answers[q.id]} onChange={e=>update(q.id,e.target.value)}>{q.options.map(o=><option key={o}>{o}</option>)}</select>:q.type==='textarea'?<textarea value={answers[q.id]} onChange={e=>update(q.id,e.target.value)} placeholder="Optional note" />:<><div className="scale-labels"><span>1 = {q.low}</span><span>10 = {q.high}</span></div><Scale value={answers[q.id]} onChange={v=>update(q.id,v)} /></>}</div>)}</div><button className="primary submit"><CheckCircle2 size={18}/> Submit today’s check-in</button></section></>;
-}
-
-function Dashboard({ openPlayer }) {
-  const avg=Math.round(players.filter(p=>p.readiness).reduce((s,p)=>s+p.readiness,0)/players.filter(p=>p.readiness).length);
-  return <><PageHeader title="Coach dashboard" subtitle="Under 18 Boys · Today’s squad overview" tag="Live preview" /><div className="metrics"><Metric value={avg} label="Team readiness / 100" icon={Activity}/><Metric value="23/27" label="Check-ins completed" icon={ClipboardCheck}/><Metric value="3" label="Players to monitor" icon={AlertTriangle}/><Metric value="1" label="High-risk alert" icon={HeartPulse}/></div><div className="two-col dashboard-grid"><section className="card"><h2>Team readiness heatmap</h2><div className="heatmap">{players.map(p=><button key={p.name} className={`player-tile ${p.status}`} onClick={p.name.startsWith('Arvind')?openPlayer:undefined}><strong>{p.name}</strong><span>{p.readiness?`${p.readiness} · ${p.position}`:'No check-in'}</span></button>)}</div><div className="legend"><span><i className="ready"/>Ready</span><span><i className="monitor"/>Monitor</span><span><i className="review"/>Review</span><span><i className="missing"/>Missing</span></div></section><section className="card"><h2>Seven-day team readiness</h2><BarChart values={[74,79,72,69,76,82,84]} labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']} /></section></div><div className="two-col dashboard-grid"><section className="card"><h2>Team body map</h2><div className="body-map"><div className="person"><i className="head"/><i className="torso"/><i className="arm left"/><i className="arm right"/><i className="leg left hot"/><i className="leg right warm"/></div><div><p><Status type="review" text="4 reports"/> Left knee</p><p><Status type="monitor" text="2 reports"/> Right hamstring</p><p><Status type="monitor" text="1 report"/> Lower back</p></div></div></section><section className="card"><h2>Priority alerts</h2><div className="alerts"><Alert icon={XCircle} title="Liam P." text="Severe knee pain and fatigue 8/10" type="review"/><Alert icon={AlertTriangle} title="Lucas B." text="Only 4.5 hours sleep" type="monitor"/><Alert icon={AlertTriangle} title="Noah K." text="Readiness dropped 18 points" type="monitor"/></div></section></div></>;
-}
-
-function Player() {
-  return <><PageHeader title="Arvind Jonnalagadda" subtitle="Midfielder · Jersey 8 · Active" tag="Individual view" /><div className="metrics"><Metric value="88" label="Readiness" icon={Activity}/><Metric value="7.5h" label="Sleep" icon={ClipboardCheck}/><Metric value="3/10" label="Fatigue" icon={AlertTriangle}/><Metric value="2/10" label="Soreness" icon={HeartPulse}/></div><div className="two-col dashboard-grid"><section className="card"><h2>Today’s answers</h2><DataTable rows={[['Sleep quality','8/10'],['Energy','8/10'],['Stress','3/10'],['Motivation','9/10'],['Pain','None'],['Illness','None'],['Self-rated readiness','9/10']]} /></section><section className="card"><h2>Personal readiness trend</h2><BarChart values={[79,82,76,84,86,88]} labels={['Mon','Tue','Wed','Thu','Fri','Today']} /></section></div><section className="card decision"><h2>Coach decision</h2><div className="decision-grid"><button className="primary">Full training</button><button className="secondary">Modified training</button><button className="danger">Rest or medical review</button></div><p className="muted small">The score supports a decision. It does not medically clear a player.</p></section></>;
-}
-
-function Metric({value,label,icon:Icon}) { return <div className="card metric"><Icon size={20}/><strong>{value}</strong><span>{label}</span></div>; }
-function Status({type,text}) { return <span className={`status ${type}`}>{text}</span>; }
-function Alert({icon:Icon,title,text,type}) { return <div className="alert"><Icon size={20}/><div><strong>{title}</strong><p>{text}</p></div><Status type={type} text={type==='review'?'Medical review':'Monitor'} /></div>; }
-function BarChart({values,labels}) { const max=Math.max(...values); return <div className="bar-chart">{values.map((v,i)=><div className="bar-wrap" key={labels[i]}><b>{v}</b><div className="bar" style={{height:`${(v/max)*170}px`}}/><span>{labels[i]}</span></div>)}</div>; }
-function DataTable({rows}) { return <div className="table-wrap"><table><tbody>{rows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{j===r.length-1&&['Active','Pending','Accepted','Expired'].includes(c)?<Status type={c==='Active'||c==='Accepted'?'ready':c==='Pending'?'monitor':'missing'} text={c}/>:c}</td>)}</tr>)}</tbody></table></div>; }
 
 function App() {
-  const [screen,setScreen]=useState('organisation');
-  const Current=useMemo(()=>({organisation:Organisation,staff:Staff,team:Team,invite:Invite,accept:Accept,checkin:Checkin,dashboard:Dashboard,player:Player})[screen],[screen]);
-  const currentIndex=navItems.findIndex(([id])=>id===screen);
-  return <div className="app"><aside className="sidebar"><div className="brand"><Activity/><div><strong>TeamReady</strong><small>Wellness preview</small></div></div><nav>{navItems.map(([id,Icon,label],i)=><button key={id} className={screen===id?'active':''} onClick={()=>setScreen(id)}><span>{i+1}</span><Icon size={17}/>{label}</button>)}</nav></aside><main><Current next={()=>setScreen(navItems[Math.min(currentIndex+1,navItems.length-1)][0])} openPlayer={()=>setScreen('player')} /></main></div>;
+  const [session, setSession] = useState(null); const [loading, setLoading] = useState(Boolean(authStore.get())); const [page, setPage] = useState('dashboard'); const [selectedTeamId, setSelectedTeamId] = useState(localStorage.getItem('teamready_team') || '');
+  async function refreshMe() { try { const me = await teamReadyApi.me(); setSession(me); if (!selectedTeamId && me.teams?.[0]?.team?.id) selectTeam(me.teams[0].team.id); } catch { authStore.clear(); setSession(null); } finally { setLoading(false); } }
+  useEffect(() => { if (authStore.get()) refreshMe(); else setLoading(false); }, []);
+  function authenticated() { refreshMe(); }
+  function selectTeam(id) { setSelectedTeamId(id); localStorage.setItem('teamready_team', id); }
+  function logout() { authStore.clear(); localStorage.removeItem('teamready_team'); setSession(null); }
+  if (loading) return <div className="auth-shell"><div className="card">Loading TeamReady…</div></div>;
+  if (!session) return <AuthScreen onAuthenticated={authenticated}/>;
+  const organisation = session.organisations?.[0]?.organisation; const teams = session.teams || [];
+  const content = page === 'dashboard' ? <Dashboard teamId={selectedTeamId}/> : page === 'organisation' ? <><PageHeader title={organisation?.name || 'Organisation'} subtitle="Authenticated organisation and account details." tag="Connected"/><div className="card"><h2>{session.user.fullName}</h2><p>{session.user.email}</p><p className="muted">{organisation?.primarySport} · {organisation?.country}</p></div></> : page === 'team' ? <TeamForm organisationId={organisation?.id} onCreated={() => refreshMe()}/> : page === 'invite' ? <InvitationForm teamId={selectedTeamId}/> : <CheckIn teamId={selectedTeamId}/>;
+  return <div className="app"><aside className="sidebar"><div className="brand"><ShieldCheck/><div><strong>TeamReady</strong><small>{session.user.fullName}</small></div></div><div className="team-picker"><label>Active team</label><select value={selectedTeamId} onChange={(e) => selectTeam(e.target.value)}><option value="">Select team</option>{teams.map((membership) => <option value={membership.team.id} key={membership.team.id}>{membership.team.name} · {membership.role}</option>)}</select></div><nav>{nav.map(([id, Icon, label]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><Icon size={17}/><span>{label}</span></button>)}</nav><button className="logout" onClick={logout}><LogOut size={17}/> Sign out</button></aside><main>{content}</main></div>;
 }
 
-createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
+createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);

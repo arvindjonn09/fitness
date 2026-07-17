@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganisationRole {
+  OWNER
+  ADMIN
+  STAFF
+  MEMBER
+}
+
+enum TeamRole {
+  HEAD_COACH
+  ASSISTANT_COACH
+  FITNESS_COACH
+  PHYSIOTHERAPIST
+  DOCTOR
+  ANALYST
+  PLAYER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum InvitationType {
+  STAFF
+  PLAYER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+  DECLINED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  MONITOR
+  MODIFIED
+  UNAVAILABLE
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String
+  fullName                 String
+  mobile                   String?
+  dateOfBirth              DateTime?
+  emailVerifiedAt          DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  organisationMemberships  OrganisationMembership[]
+  teamMemberships          TeamMembership[]
+  playerProfile            PlayerProfile?
+  submittedCheckIns        DailyCheckIn[]           @relation("PlayerCheckIns")
+  coachNotes               CoachNote[]              @relation("CoachNotesAuthor")
+  invitationsSent          Invitation[]             @relation("InvitedBy")
+  invitationsAccepted      Invitation[]             @relation("AcceptedBy")
+  auditEvents              AuditLog[]
+}
+
+model Organisation {
+  id           String                   @id @default(cuid())
+  name         String
+  type         String
+  primarySport String
+  country      String
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  memberships  OrganisationMembership[]
+  teams        Team[]
+  invitations  Invitation[]
+  auditLogs    AuditLog[]
+}
+
+model OrganisationMembership {
+  id             String           @id @default(cuid())
+  organisationId String
+  userId         String
+  role           OrganisationRole
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+}
+
+model Team {
+  id             String           @id @default(cuid())
+  organisationId String
+  name           String
+  sport          String
+  ageGroup       String?
+  season         String?
+  competition    String?
+  timezone       String           @default("Australia/Sydney")
+  trainingDays   String?
+  matchDay       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  memberships    TeamMembership[]
+  invitations    Invitation[]
+  checkIns       DailyCheckIn[]
+  coachNotes     CoachNote[]
+
+  @@index([organisationId])
+}
+
+model TeamMembership {
+  id              String           @id @default(cuid())
+  teamId          String
+  userId          String
+  role            TeamRole
+  designation     String?
+  status          MembershipStatus @default(ACTIVE)
+  permissionsJson String           @default("[]")
+  jerseyNumber    String?
+  position        String?
+  joinedAt        DateTime         @default(now())
+  removedAt       DateTime?
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId, role, status])
+}
+
+model Invitation {
+  id              String           @id @default(cuid())
+  organisationId  String
+  teamId          String?
+  email           String
+  fullName        String
+  type            InvitationType
+  role            TeamRole
+  designation     String?
+  permissionsJson String           @default("[]")
+  position        String?
+  jerseyNumber    String?
+  guardianEmail   String?
+  tokenHash       String           @unique
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  invitedById     String
+  acceptedById    String?
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy       User             @relation("InvitedBy", fields: [invitedById], references: [id])
+  acceptedBy      User?            @relation("AcceptedBy", fields: [acceptedById], references: [id])
+
+  @@index([email, status])
+  @@index([teamId])
+}
+
+model PlayerProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  dominantSide      String?
+  heightCm          Float?
+  weightKg          Float?
+  emergencyName     String?
+  emergencyPhone    String?
+  medicalNotes      String?
+  currentInjury     String?
+  consentAcceptedAt DateTime?
+  guardianConsentAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyCheckIn {
+  id                  String             @id @default(cuid())
+  teamId              String
+  playerId            String
+  checkInDate         String
+  sleepHours          Float
+  sleepQuality        Int
+  energy              Int
+  fatigue             Int
+  soreness            Int
+  stress              Int
+  motivation          Int
+  hasPain             Boolean
+  painLocation        String?
+  painSeverity        Int?
+  illnessSymptoms     String?
+  selfReadiness       Int
+  playerNote          String?
+  calculatedReadiness Int
+  availability        AvailabilityStatus
+  riskReasonsJson     String             @default("[]")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player              User               @relation("PlayerCheckIns", fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId, checkInDate])
+  @@index([teamId, checkInDate])
+  @@index([playerId, checkInDate])
+}
+
+model CoachNote {
+  id        String   @id @default(cuid())
+  teamId    String
+  playerId  String
+  authorId  String
+  note      String
+  isMedical Boolean  @default(false)
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author    User     @relation("CoachNotesAuthor", fields: [authorId], references: [id])
+
+  @@index([teamId, playerId])
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organisationId String?
+  actorId        String?
+  action         String
+  entityType     String
+  entityId       String?
+  metadataJson   String        @default("{}")
+  createdAt      DateTime      @default(now())
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, createdAt])
+}

@@ -37,6 +37,16 @@ export const teamReadyApi = {
   getInvitation: (token) => api(`/api/invitations/${token}`),
   acceptInvitation: (token, body) => api(`/api/invitations/${token}/accept`, { method: 'POST', body: JSON.stringify(body) }),
   submitCheckIn: (teamId, body) => api(`/api/teams/${teamId}/check-ins`, { method: 'POST', body: JSON.stringify(body) }),
-  dashboard: (teamId, date) => api(`/api/teams/${teamId}/dashboard${date ? `?date=${date}` : ''}`),
-  playerTrend: (teamId, playerId) => api(`/api/teams/${teamId}/players/${playerId}/trend`),
+  dashboard: async (teamId, date) => {
+    const payload = await api(`/api/teams/${teamId}/dashboard${date ? `?date=${date}` : ''}`);
+    return {
+      ...payload,
+      checkIns: payload.players || [],
+      averageReadiness: payload.summary?.teamReadiness ?? null,
+      completedCount: payload.summary?.completed ?? 0,
+      monitorCount: (payload.summary?.monitor ?? 0) + (payload.summary?.modified ?? 0),
+      highRiskCount: payload.summary?.unavailable ?? 0,
+    };
+  },
+  player: (teamId, playerId) => api(`/api/teams/${teamId}/players/${playerId}`),
 };

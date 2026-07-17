@@ -11,6 +11,7 @@ enum OrganisationRole {
   OWNER
   ADMIN
   STAFF
+  MEMBER
 }
 
 enum TeamRole {
@@ -71,28 +72,28 @@ model User {
 }
 
 model Organisation {
-  id          String                   @id @default(cuid())
-  name        String
-  type        String
+  id           String                   @id @default(cuid())
+  name         String
+  type         String
   primarySport String
-  country     String
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  memberships OrganisationMembership[]
-  teams       Team[]
-  invitations Invitation[]
-  auditLogs   AuditLog[]
+  country      String
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  memberships  OrganisationMembership[]
+  teams        Team[]
+  invitations  Invitation[]
+  auditLogs    AuditLog[]
 }
 
 model OrganisationMembership {
-  id             String             @id @default(cuid())
+  id             String           @id @default(cuid())
   organisationId String
   userId         String
   role           OrganisationRole
-  status         MembershipStatus   @default(ACTIVE)
-  createdAt      DateTime           @default(now())
-  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organisationId, userId])
   @@index([userId])
@@ -121,19 +122,19 @@ model Team {
 }
 
 model TeamMembership {
-  id                 String             @id @default(cuid())
-  teamId             String
-  userId             String
-  role               TeamRole
-  designation        String?
-  status             MembershipStatus   @default(ACTIVE)
-  permissionsJson    String             @default("[]")
-  jerseyNumber       String?
-  position           String?
-  joinedAt           DateTime           @default(now())
-  removedAt          DateTime?
-  team               Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  teamId          String
+  userId          String
+  role            TeamRole
+  designation     String?
+  status          MembershipStatus @default(ACTIVE)
+  permissionsJson String           @default("[]")
+  jerseyNumber    String?
+  position        String?
+  joinedAt        DateTime         @default(now())
+  removedAt       DateTime?
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@index([userId])
@@ -141,77 +142,77 @@ model TeamMembership {
 }
 
 model Invitation {
-  id             String             @id @default(cuid())
-  organisationId String
-  teamId         String?
-  email          String
-  fullName       String
-  type           InvitationType
-  role           TeamRole
-  designation    String?
-  permissionsJson String            @default("[]")
-  position       String?
-  jerseyNumber   String?
-  guardianEmail  String?
-  tokenHash      String             @unique
-  status         InvitationStatus   @default(PENDING)
-  expiresAt      DateTime
-  invitedById    String
-  acceptedById   String?
-  acceptedAt     DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  team           Team?              @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  invitedBy      User               @relation("InvitedBy", fields: [invitedById], references: [id])
-  acceptedBy     User?              @relation("AcceptedBy", fields: [acceptedById], references: [id])
+  id              String           @id @default(cuid())
+  organisationId  String
+  teamId          String?
+  email           String
+  fullName        String
+  type            InvitationType
+  role            TeamRole
+  designation     String?
+  permissionsJson String           @default("[]")
+  position        String?
+  jerseyNumber    String?
+  guardianEmail   String?
+  tokenHash       String           @unique
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  invitedById     String
+  acceptedById    String?
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  team            Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy       User             @relation("InvitedBy", fields: [invitedById], references: [id])
+  acceptedBy      User?            @relation("AcceptedBy", fields: [acceptedById], references: [id])
 
   @@index([email, status])
   @@index([teamId])
 }
 
 model PlayerProfile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  dominantSide     String?
-  heightCm         Float?
-  weightKg         Float?
-  emergencyName    String?
-  emergencyPhone   String?
-  medicalNotes     String?
-  currentInjury    String?
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  dominantSide      String?
+  heightCm          Float?
+  weightKg          Float?
+  emergencyName     String?
+  emergencyPhone    String?
+  medicalNotes      String?
+  currentInjury     String?
   consentAcceptedAt DateTime?
   guardianConsentAt DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DailyCheckIn {
-  id                   String             @id @default(cuid())
-  teamId               String
-  playerId             String
-  checkInDate          String
-  sleepHours           Float
-  sleepQuality         Int
-  energy               Int
-  fatigue              Int
-  soreness             Int
-  stress               Int
-  motivation           Int
-  hasPain              Boolean
-  painLocation         String?
-  painSeverity         Int?
-  illnessSymptoms      String?
-  selfReadiness        Int
-  playerNote           String?
-  calculatedReadiness  Int
-  availability         AvailabilityStatus
-  riskReasonsJson      String             @default("[]")
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  team                 Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player               User               @relation("PlayerCheckIns", fields: [playerId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(cuid())
+  teamId              String
+  playerId            String
+  checkInDate         String
+  sleepHours          Float
+  sleepQuality        Int
+  energy              Int
+  fatigue             Int
+  soreness            Int
+  stress              Int
+  motivation          Int
+  hasPain             Boolean
+  painLocation        String?
+  painSeverity        Int?
+  illnessSymptoms     String?
+  selfReadiness       Int
+  playerNote          String?
+  calculatedReadiness Int
+  availability        AvailabilityStatus
+  riskReasonsJson     String             @default("[]")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player              User               @relation("PlayerCheckIns", fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, playerId, checkInDate])
   @@index([teamId, checkInDate])
@@ -219,15 +220,15 @@ model DailyCheckIn {
 }
 
 model CoachNote {
-  id         String   @id @default(cuid())
-  teamId     String
-  playerId   String
-  authorId   String
-  note       String
-  isMedical  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  author     User     @relation("CoachNotesAuthor", fields: [authorId], references: [id])
+  id        String   @id @default(cuid())
+  teamId    String
+  playerId  String
+  authorId  String
+  note      String
+  isMedical Boolean  @default(false)
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author    User     @relation("CoachNotesAuthor", fields: [authorId], references: [id])
 
   @@index([teamId, playerId])
 }

@@ -1,0 +1,35 @@
+name: TeamReady CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feature/frontend-backend-integration
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run prisma:generate
+      - run: npm run prisma:migrate -- --name ci
+        env:
+          DATABASE_URL: file:./ci.db
